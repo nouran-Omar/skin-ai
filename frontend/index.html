@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#16324f" />
+    <meta name="description" content="Bilingual educational skin-lesion pre-screening. Review an image with questionnaire context and prepare a summary to discuss with a clinician. Not a medical diagnosis." />
+    <meta name="robots" content="index,follow,max-image-preview:large" />
+    <link rel="canonical" href="https://skin-ai-psi-two.vercel.app/" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="sitemap" type="application/xml" href="/sitemap.xml" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="SkinAI" />
+    <meta property="og:title" content="SkinAI | Skin lesion pre-screening" />
+    <meta property="og:description" content="Bilingual educational skin-lesion pre-screening. Review an image with questionnaire context and prepare a summary to discuss with a clinician. Not a medical diagnosis." />
+    <meta property="og:url" content="https://skin-ai-psi-two.vercel.app/" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:locale:alternate" content="ar_EG" />
+    <meta property="og:image" content="https://skin-ai-psi-two.vercel.app/og-skinai.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="SkinAI | Skin lesion pre-screening, in English and Arabic" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="SkinAI | Skin lesion pre-screening" />
+    <meta name="twitter:description" content="Bilingual educational skin-lesion pre-screening. Not a medical diagnosis." />
+    <meta name="twitter:image" content="https://skin-ai-psi-two.vercel.app/og-skinai.png" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "SkinAI | Skin lesion pre-screening",
+        "url": "https://skin-ai-psi-two.vercel.app/",
+        "applicationCategory": "HealthApplication",
+        "operatingSystem": "Any",
+        "inLanguage": ["en", "ar"],
+        "isAccessibleForFree": true,
+        "description": "An educational, bilingual skin-lesion pre-screening web application. It is not a medical diagnosis and does not replace care from a qualified clinician."
+      }
+    </script>
+    <title>SkinAI | Skin lesion pre-screening</title>
+    <script>
+      try { const t = localStorage.getItem("theme");
+        if (t === "dark" || (!t && matchMedia("(prefers-color-scheme: dark)").matches)) document.documentElement.classList.add("dark");
+      } catch {}
+      try {
+        const saved = localStorage.getItem("skinai-language");
+        const lang = saved === "ar" || saved === "en" ? saved : (navigator.language.toLowerCase().startsWith("ar") ? "ar" : "en");
+        document.documentElement.lang = lang;
+        document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
+        if (lang === "ar") document.title = "SkinAI | الفحص الأولي لآفات الجلد";
+      } catch {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,9 @@
+name: skin-ai
+channels:
+  - conda-forge
+dependencies:
+  - python=3.13
+  - pip
+  - nodejs=20
+  - pip:
+      - -r requirements.txt
