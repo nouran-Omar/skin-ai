@@ -1,5 +1,5 @@
 import { ArrowLeft, ArrowRight, ShieldCheck } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { analyze, fetchQuiz } from "../api";
 import Analyzing from "../components/Analyzing";
 import Quiz from "../components/Quiz";
@@ -27,9 +27,13 @@ export default function ScreeningPage() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchQuiz().then(setQuestions).catch(() => setLoadErr("Cannot reach the server. Start the backend on port 8000 and refresh."));
-  }, []);
+  const loadQuestions = useCallback(() => {
+    setLoadErr(null);
+    fetchQuiz().then(setQuestions).catch((error) => {
+      setLoadErr(localizeApiError(error instanceof Error ? error.message : "Could not connect to the SkinAI service. It may be starting, or the API URL or browser access settings may need checking. Please try again shortly.", language));
+    });
+  }, [language]);
+  useEffect(loadQuestions, [loadQuestions]);
   useEffect(() => {
     if (!file) { setPreview(null); return; }
     const url = URL.createObjectURL(file);
@@ -62,7 +66,7 @@ export default function ScreeningPage() {
         <p className="mx-auto mt-4 max-w-3xl text-base leading-7 text-brand-600 dark:text-brand-200 sm:text-lg">{t("Answer a few questions about the spot, add a photo, and get a ranked list of likely conditions, an urgency level and a PDF summary you can bring to your doctor.")}</p>
       </header>
       <div className="mx-auto max-w-3xl pt-8"><Stepper current={INDEX[stage]} /></div>
-      {loadErr && <p role="alert" className="mx-auto my-6 max-w-2xl rounded-xl bg-coral-100 px-4 py-3 text-sm text-coral-500">{t(loadErr)}</p>}
+      {loadErr && <div role="alert" className="mx-auto my-6 max-w-2xl rounded-xl bg-coral-100 px-4 py-3 text-sm text-coral-500"><p>{t(loadErr)}</p><button type="button" className="mt-2 font-semibold underline underline-offset-2" onClick={loadQuestions}>{t("Try again")}</button></div>}
       <section id="skin-check" className="px-0 py-10 sm:py-12" aria-label={t("Skin lesion check")}>
         {stage === "consent" && <div className="panel mx-auto max-w-3xl border-brand-200/80 p-4 shadow-sm dark:border-line-dark sm:p-6">
           <div className="flex items-start gap-3 rounded-xl bg-brand-50 p-3.5 text-sm leading-6 dark:bg-white/5 sm:p-4">

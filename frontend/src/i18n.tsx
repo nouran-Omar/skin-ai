@@ -4,6 +4,7 @@ import type { Question } from "./types";
 export type Language = "en" | "ar";
 
 const AR: Record<string, string> = {
+  "Try again": "حاول مرة أخرى",
   "Could not connect to the SkinAI service. It may be starting, or the API URL or browser access settings may need checking. Please try again shortly.": "تعذر الاتصال بخدمة SkinAI. قد تكون الخدمة قيد التشغيل، أو قد يحتاج عنوان API أو إعدادات الوصول من المتصفح إلى المراجعة. يُرجى المحاولة بعد قليل.",
   "The request took too long. The screening service may be waking up; wait a moment and try again.": "استغرق الطلب وقتاً طويلاً. قد تكون خدمة الفحص قيد التشغيل؛ انتظر قليلاً ثم حاول مجدداً.",
   "The SkinAI service is starting or temporarily unavailable. Please wait a minute and try again.": "خدمة SkinAI قيد التشغيل أو غير متاحة مؤقتاً. انتظر دقيقة ثم حاول مجدداً.",
