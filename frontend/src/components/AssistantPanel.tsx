@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { ExternalLink, MessageCircle, Send, Sparkles } from "lucide-react";
 import { sendAssistantMessage } from "../api";
-import { useLanguage } from "../i18n";
+import { localizeApiError, useLanguage } from "../i18n";
 
 export default function AssistantPanel() {
   const { language, t } = useLanguage();
@@ -25,8 +25,8 @@ export default function AssistantPanel() {
       const response = await sendAssistantMessage(text, language, history, allowGeneration);
       setMessages((current) => [...current, { question: text, answer: response.answer, disclaimer: response.disclaimer, sources: response.sources ?? [], mode: response.mode }]);
       setQuestion("");
-    } catch {
-      setError(t("Could not reach assistant. Please try again."));
+    } catch (error) {
+      setError(localizeApiError(error instanceof Error ? error.message : "Could not connect to the SkinAI service. It may be starting, or the API URL or browser access settings may need checking. Please try again shortly.", language));
     } finally {
       setBusy(false);
     }
