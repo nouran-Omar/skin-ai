@@ -27,7 +27,7 @@ export default function AcneCarePanel() {
         <li>{t("Avoid adapalene during pregnancy or when trying to conceive unless a clinician advises otherwise.")}</li>
       </ul>
       <div className="mt-4 flex flex-wrap items-center gap-3">
-        <a className="btn-primary" href={acneGuideUrl(language)} download><FileDown size={16} /> {t("Download acne care guide (English)")}</a>
+        <a className="btn-primary" href={acneGuideUrl(language)} download><FileDown size={16} /> {t("Download acne care guide")}</a>
         <a className="inline-flex items-center gap-1 text-sm text-brand-600 underline dark:text-brand-200" href="https://www.aad.org/public/diseases/acne/diy/adult-acne-treatment" target="_blank" rel="noreferrer">{t("AAD self-care guidance")} <ExternalLink size={13} /></a>
       </div>
       <p className="mt-3 text-xs text-brand-500 dark:text-brand-300">{t("Educational information only. Seek medical advice for painful nodules, scarring, severe irritation, or persistent concerns.")}</p>

@@ -1,7 +1,9 @@
 import io, json, uuid
 import cv2, numpy as np, pytest
+from fastapi import HTTPException, Request
 from fastapi.testclient import TestClient
 from backend.app.main import app
+from backend.app.security import client_key, rate_limit
 
 
 def synthetic_jpeg() -> bytes:
@@ -23,6 +25,19 @@ def test_health_and_quiz(client):
     assert len(q) >= 10 and any("show_if" in x for x in q)
 
 
+def test_rate_limit_ignores_untrusted_forwarded_for_header():
+    request = Request({
+        "type": "http", "method": "POST", "path": "/api/analyze", "query_string": b"",
+        "headers": [(b"x-forwarded-for", b"203.0.113.200")],
+        "client": ("198.51.100.45", 4321), "server": ("testserver", 80),
+    })
+    assert client_key(request) == "198.51.100.45"
+    rate_limit(request, "unit-test", 1)
+    with pytest.raises(HTTPException) as exc:
+        rate_limit(request, "unit-test", 1)
+    assert exc.value.status_code == 429
+
+
 def test_analyze_and_report(client):
     answers = dict(age=62, sex="male", skin_tone="II", location="trunk", duration="m2_6", change="rapid",
                    symptoms=["bleeding"], non_healing="yes", history=["none"], family_melanoma="yes",
@@ -34,6 +49,8 @@ def test_analyze_and_report(client):
     assert body["urgency"]["level"] in ("urgent", "soon", "routine") and body["context_factors"]
     pdf = client.get(f"/api/report/{body['id']}")
     assert pdf.status_code == 200 and pdf.content[:4] == b"%PDF"
+    pdf_ar = client.get(f"/api/report/{body['id']}?language=ar")
+    assert pdf_ar.status_code == 200 and pdf_ar.content[:4] == b"%PDF"
 
 
 def test_rejects_bad_input(client):
@@ -130,8 +147,16 @@ def test_account_progress_assistant_and_acne_guide(client, monkeypatch, tmp_path
     assert "benzoyl peroxide" not in unrelated.json()["answer"]
     pdf = client.get("/api/reports/acne-guide?language=en")
     assert pdf.status_code == 200 and pdf.content[:4] == b"%PDF"
+    pdf_ar = client.get("/api/reports/acne-guide?language=ar")
+    assert pdf_ar.status_code == 200 and pdf_ar.content[:4] == b"%PDF"
     assert client.post("/api/auth/logout").status_code == 200
     assert client.get("/api/history").status_code == 401
+
+    second_email = f"skinai-delete-{uuid.uuid4().hex}@example.test"
+    assert client.post("/api/auth/register", json={"email": second_email, "password": "a-long-demo-password-456"}).status_code == 200
+    deleted = client.delete("/api/auth/me")
+    assert deleted.status_code == 200 and deleted.json() == {"ok": True}
+    assert client.get("/api/auth/me").status_code == 401
 
 
 def test_assistant_handles_greetings_and_matches_arabic_script(client, monkeypatch):

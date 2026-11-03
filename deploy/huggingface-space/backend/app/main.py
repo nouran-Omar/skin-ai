@@ -1,4 +1,5 @@
 from __future__ import annotations
+import asyncio
 import base64
 import hashlib
 import hmac
@@ -17,6 +18,9 @@ from . import assistant, quiz
 from . import records
 from .config import (
     ALLOWED_ORIGINS,
+    ANALYZE_RATE_LIMIT,
+    ASSISTANT_RATE_LIMIT,
+    AUTH_RATE_LIMIT,
     DISCLAIMER,
     LOW_CONFIDENCE_THRESHOLD,
     MAX_IMAGE_PIXELS,
@@ -26,6 +30,8 @@ from .config import (
 )
 from .inference import get_predictor, overlay_cam, to_b64_png
 from .report import build_pdf, build_acne_guide
+from .schemas import AssistantIn, AuthIn, ProgressIn
+from .security import rate_limit
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +40,15 @@ async def lifespan(_app: FastAPI):
     records.initialize()
     purge_old()
     get_predictor()          # load the model once at startup
-    yield
+    cleanup_task = asyncio.create_task(_retention_worker())
+    try:
+        yield
+    finally:
+        cleanup_task.cancel()
+        try:
+            await cleanup_task
+        except asyncio.CancelledError:
+            pass
 
 
 app = FastAPI(title="SkinAI API", version="1.0.0", lifespan=lifespan)
@@ -89,10 +103,14 @@ def _current_user(request: Request) -> dict:
     return user
 
 
+def _cookie_secure() -> bool:
+    default = "true" if os.getenv("SKINAI_ENV", "development").lower() in ("production", "prod") else "false"
+    return os.getenv("SKINAI_COOKIE_SECURE", default).lower() == "true"
+
+
 def _session_cookie(response: FastAPIResponse, user_id: str):
     response.set_cookie(COOKIE_NAME, _jwt_encode(user_id), httponly=True,
-        secure=os.getenv("SKINAI_COOKIE_SECURE", "true" if os.getenv("SKINAI_ENV", "development").lower() in ("production", "prod") else "false").lower() == "true",
-        samesite="lax", max_age=60 * 60 * 24 * 7, path="/api")
+        secure=_cookie_secure(), samesite="lax", max_age=60 * 60 * 24 * 7, path="/api")
 
 
 def _password_hash(password: str) -> str:
@@ -110,9 +128,10 @@ def _password_valid(password: str, encoded: str) -> bool:
 
 
 @app.post("/api/auth/register")
-def register(payload: dict, response: FastAPIResponse):
-    email = str(payload.get("email", "")).strip().lower()
-    password = payload.get("password", "")
+def register(payload: AuthIn, response: FastAPIResponse, request: Request):
+    rate_limit(request, "auth", AUTH_RATE_LIMIT)
+    email = str(payload.email).strip().lower()
+    password = payload.password
     if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", email) or len(email) > 254:
         raise HTTPException(422, "Enter a valid email address.")
     if not isinstance(password, str) or not 12 <= len(password) <= 128:
@@ -124,9 +143,10 @@ def register(payload: dict, response: FastAPIResponse):
 
 
 @app.post("/api/auth/login")
-def login(payload: dict, response: FastAPIResponse):
-    email = str(payload.get("email", "")).strip().lower()
-    password = payload.get("password", "")
+def login(payload: AuthIn, response: FastAPIResponse, request: Request):
+    rate_limit(request, "auth", AUTH_RATE_LIMIT)
+    email = str(payload.email).strip().lower()
+    password = payload.password
     user = records.find_user_by_email(email)
     if not user or not isinstance(password, str) or not _password_valid(password, user["password_hash"]):
         raise HTTPException(401, "Email or password is incorrect.")
@@ -140,7 +160,16 @@ def me(request: Request): return _current_user(request)
 
 @app.post("/api/auth/logout")
 def logout(response: FastAPIResponse):
-    response.delete_cookie(COOKIE_NAME, path="/api", httponly=True, samesite="lax")
+    response.delete_cookie(COOKIE_NAME, path="/api", httponly=True, samesite="lax", secure=_cookie_secure())
+    return {"ok": True}
+
+
+@app.delete("/api/auth/me")
+def delete_account(request: Request, response: FastAPIResponse):
+    user = _current_user(request)
+    if not records.delete_user(user["id"]):
+        raise HTTPException(404, "Account not found.")
+    response.delete_cookie(COOKIE_NAME, path="/api", httponly=True, samesite="lax", secure=_cookie_secure())
     return {"ok": True}
 
 
@@ -170,16 +199,16 @@ def progress(request: Request, lesion_id: str | None = None): return records.lis
 
 
 @app.post("/api/progress")
-def add_progress(payload: dict, request: Request):
+def add_progress(payload: ProgressIn, request: Request):
     user = _current_user(request)
-    lesion = str(payload.get("lesion_id", "")).strip()
-    note = str(payload.get("note", "")).strip()
-    recorded_at = str(payload.get("recorded_at", datetime.now(timezone.utc).date().isoformat()))
+    lesion = str(payload.lesion_id).strip()
+    note = str(payload.note).strip()
+    recorded_at = str(payload.recorded_at or datetime.now(timezone.utc).date().isoformat())
     try: datetime.strptime(recorded_at, "%Y-%m-%d")
     except ValueError: raise HTTPException(422, "Date must use YYYY-MM-DD format.")
     if not lesion or len(lesion) > 60: raise HTTPException(422, "Enter a lesion label of up to 60 characters.")
     if len(note) > 1000: raise HTTPException(422, "Progress note must be 1000 characters or fewer.")
-    analysis_id = payload.get("analysis_id")
+    analysis_id = payload.analysis_id
     if analysis_id is not None and (not isinstance(analysis_id, str) or not UUID_RE.match(analysis_id)):
         raise HTTPException(422, "Analysis id is invalid.")
     try: return records.add_progress(user["id"], lesion, recorded_at, note, analysis_id)
@@ -193,25 +222,21 @@ def remove_progress(entry_id: str, request: Request):
 
 
 @app.post("/api/assistant/chat")
-def assistant_chat(payload: dict):
-    question = str(payload.get("message", "")).strip()
+def assistant_chat(payload: AssistantIn, request: Request):
+    rate_limit(request, "assistant", ASSISTANT_RATE_LIMIT)
+    question = str(payload.message).strip()
     if not question or len(question) > 1000: raise HTTPException(422, "Message must be between 1 and 1000 characters.")
-    language = "ar" if re.search(r"[\u0600-\u06ff]", question) else ("ar" if payload.get("language") == "ar" else "en")
-    raw_history = payload.get("history", [])
-    if not isinstance(raw_history, list):
-        raise HTTPException(422, "Chat history must be a list of message turns.")
-    history = []
-    for turn in raw_history[-6:]:
-        if not isinstance(turn, dict) or turn.get("role") not in ("user", "assistant"):
-            continue
-        content = turn.get("content")
-        if isinstance(content, str) and content.strip():
-            history.append({"role": turn["role"], "content": content[:1000]})
+    language = "ar" if re.search(r"[\u0600-\u06ff]", question) else ("ar" if payload.language == "ar" else "en")
+    history = [
+        {"role": turn.role, "content": turn.content.strip()}
+        for turn in payload.history[-6:]
+        if turn.content.strip()
+    ]
     return assistant.reply(
         question,
         language,
         history=history,
-        allow_generation=payload.get("allow_generation") is True,
+        allow_generation=payload.allow_generation is True,
     )
 
 
@@ -228,8 +253,17 @@ def assistant_guide(topic: str, language: str = "en"):
 def purge_old() -> None:
     cutoff = time.time() - RETENTION_HOURS * 3600
     for f in STORAGE_DIR.glob("*.json"):
-        if f.stat().st_mtime < cutoff:
-            f.unlink(missing_ok=True)
+        try:
+            if f.stat().st_mtime < cutoff:
+                f.unlink(missing_ok=True)
+        except OSError:
+            logger.warning("Could not purge expired report %s", f.name, exc_info=True)
+
+
+async def _retention_worker() -> None:
+    while True:
+        await asyncio.sleep(60 * 60)
+        purge_old()
 
 
 @app.get("/api/health")
@@ -246,19 +280,19 @@ def get_quiz():
 @app.get("/api/reports/acne-guide")
 def acne_guide(language: str = "en"):
     if language not in ("en", "ar"): raise HTTPException(422, "Language must be en or ar.")
-    # ReportLab's built-in fonts do not shape Arabic. Keep the PDF legible and
-    # explicitly English until an Arabic shaping/font pipeline is configured.
-    return Response(build_acne_guide("en"), media_type="application/pdf",
-                    headers={"Content-Disposition": 'attachment; filename="skinai-acne-guide-en.pdf"'})
+    pdf = build_acne_guide(language)
+    return Response(pdf, media_type="application/pdf",
+                    headers={"Content-Disposition": f'attachment; filename="skinai-acne-guide-{language}.pdf"'})
 
 
 def predict_rgb(rgb: np.ndarray, mode: str = "full") -> dict:
-    """Predict an RGB image; the Space wrapper replaces this with a ZeroGPU callback."""
+    """Predict an RGB image; the Hugging Face Space wrapper replaces this with ZeroGPU."""
     return get_predictor().predict(rgb)
 
 
 @app.post("/api/analyze")
-async def analyze(image: UploadFile = File(...), answers: str = Form("{}")):
+async def analyze(request: Request, image: UploadFile = File(...), answers: str = Form("{}")):
+    rate_limit(request, "analyze", ANALYZE_RATE_LIMIT)
     if image.content_type not in ("image/jpeg", "image/png", "image/webp"):
         raise HTTPException(415, "Upload a JPEG, PNG or WebP image.")
     max_upload_bytes = MAX_UPLOAD_MB * 1024 * 1024
@@ -351,12 +385,14 @@ async def analyze(image: UploadFile = File(...), answers: str = Form("{}")):
 
 
 @app.get("/api/report/{analysis_id}")
-def report(analysis_id: str):
+def report(analysis_id: str, language: str = "en"):
     if not UUID_RE.match(analysis_id):
         raise HTTPException(400, "Invalid report id.")
+    if language not in ("en", "ar"):
+        raise HTTPException(422, "Language must be en or ar.")
     f = STORAGE_DIR / f"{analysis_id}.json"
     if not f.exists():
         raise HTTPException(404, "Report not found or expired. Run the analysis again.")
-    pdf = build_pdf(json.loads(f.read_text()))
+    pdf = build_pdf(json.loads(f.read_text()), language)
     return Response(pdf, media_type="application/pdf",
-                    headers={"Content-Disposition": f'attachment; filename="skin-report-{analysis_id[:8]}.pdf"'})
+                    headers={"Content-Disposition": f'attachment; filename="skin-report-{analysis_id[:8]}-{language}.pdf"'})

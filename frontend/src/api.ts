@@ -50,6 +50,7 @@ const jsonRequest = (method: string, body?: unknown) => ({ method, credentials: 
 export const register = (email: string, password: string) => request(`${API_BASE}/api/auth/register`, jsonRequest("POST", { email, password })).then(parse<Account>);
 export const login = (email: string, password: string) => request(`${API_BASE}/api/auth/login`, jsonRequest("POST", { email, password })).then(parse<Account>);
 export const logout = () => request(`${API_BASE}/api/auth/logout`, jsonRequest("POST")).then(parse<{ ok: boolean }>);
+export const deleteAccount = () => request(`${API_BASE}/api/auth/me`, jsonRequest("DELETE")).then(parse<{ ok: boolean }>);
 export const currentAccount = () => request(`${API_BASE}/api/auth/me`, { credentials: "include" }).then(parse<Account>);
 export const saveAnalysis = (id: string) => request(`${API_BASE}/api/history/${id}`, jsonRequest("POST")).then(parse<SavedAnalysis>);
 export const fetchHistory = () => request(`${API_BASE}/api/history`, { credentials: "include" }).then(parse<SavedAnalysis[]>);
@@ -65,11 +66,11 @@ export const fetchAssistantGuide = (topic: string, language: "en" | "ar") =>
   request(`${API_BASE}/api/assistant/guide/${encodeURIComponent(topic)}?language=${language}`).then(parse<AssistantGuide>);
 export const sendAssistantMessage = (message: string, language: "en" | "ar", history: AssistantTurn[] = [], allowGeneration = false) =>
   request(`${API_BASE}/api/assistant/chat`, jsonRequest("POST", { message, language, history, allow_generation: allowGeneration })).then(parse<AssistantResponse>);
-export const acneGuideUrl = (_language: "en" | "ar") => `${API_BASE}/api/reports/acne-guide?language=en`;
+export const acneGuideUrl = (language: "en" | "ar") => `${API_BASE}/api/reports/acne-guide?language=${language}`;
 
 export const fetchQuiz = () => request(`${API_BASE}/api/quiz`).then(parse<Question[]>);
 export const fetchHealth = () => request(`${API_BASE}/api/health`).then(parse<{ demo: boolean }>);
-export const reportUrl = (id: string) => `${API_BASE}/api/report/${id}`;
+export const reportUrl = (id: string, language: "en" | "ar" = "en") => `${API_BASE}/api/report/${id}?language=${language}`;
 
 export async function analyze(file: File, answers: Answers): Promise<AnalysisResult> {
   const form = new FormData();

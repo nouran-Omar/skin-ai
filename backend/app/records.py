@@ -189,3 +189,10 @@ def delete_progress(user_id: str, entry_id: str) -> bool:
             (user_id, entry_id),
         )
     return result.rowcount > 0
+
+
+def delete_user(user_id: str) -> bool:
+    """Remove the account and cascade-delete saved summaries and progress notes."""
+    with _connect() as db:
+        result = db.execute("DELETE FROM users WHERE id = ?", (user_id,))
+    return result.rowcount > 0

@@ -6,7 +6,7 @@
 
 The project is designed for **education, experimentation, and technical demonstration**. It is not a medical device, does not diagnose, and must not be used to make treatment decisions or delay care.
 
-[Open SkinAI](https://skin-ai-psi-two.vercel.app/) · [Deployment guide](DEPLOYMENT.md) · [API documentation while running](http://127.0.0.1:8000/docs)
+[**skin-ai-psi-two.vercel.app**](https://skin-ai-psi-two.vercel.app/) · [Deployment guide](DEPLOYMENT.md) · [API documentation while running](http://127.0.0.1:8000/docs)
 
 ![SkinAI social preview](frontend/public/og-skinai.png)
 
@@ -21,14 +21,14 @@ That is a **project goal, not a measured health outcome**. The model and its que
 - Accepts a JPEG, PNG, or WebP image and checks basic file, size, resolution, and sharpness constraints.
 - Uses a PyTorch image classifier and a branching questionnaire to present image-only and context-adjusted model scores.
 - Displays an urgency message, image-quality caveats, and a Grad-CAM visualization of image regions that influenced the model.
-- Produces a branded PDF summary for discussion with a clinician.
+- Produces a branded English or Arabic PDF summary for discussion with a clinician, with bundled Arabic fonts and text shaping.
 - Provides an English/Arabic interface with right-to-left layout for Arabic.
-- Offers optional account-based summary history and dated skin-progress notes. Saved account summaries do not include the uploaded image; progress notes should use a nickname and avoid identifying details.
+- Offers optional account-based summary history and dated skin-progress notes, with controls to delete saved entries or the account. Saved account summaries do not include the uploaded image; progress notes should use a nickname and avoid identifying details.
 - Includes a bilingual, source-linked skincare assistant with local retrieval and optional, visitor-opted-in Hugging Face generation. The assistant is educational and not personalized medical advice.
 
 > **Model scope:** a standard HAM10000 checkpoint contains seven dermoscopic lesion classes: `akiec`, `bcc`, `bkl`, `df`, `mel`, `nv`, and `vasc`. Acne is not one of those model classes. The acne guide is separate from image classification. Actual supported labels are read from the selected checkpoint.
 
-> **Demo mode:** if `models/best.pt` is unavailable, the API starts with deterministic placeholder predictions so the user interface can be explored. Demo scores have no clinical meaning.
+> **Demo mode:** if the configured model checkpoint is unavailable, the API starts with deterministic placeholder predictions so the user interface can be explored. Demo scores have no clinical meaning.
 
 ## Technology
 
@@ -72,6 +72,7 @@ skin-ai/
 │   ├── preprocessing.py     # Shared training/inference image pipeline
 │   ├── train.py             # Head training and full fine-tuning
 │   ├── evaluate.py          # Held-out metrics and calibration metadata
+│   ├── export_safetensors.py # Export a trusted checkpoint for deployment
 │   └── classes.py           # Human-readable class metadata
 ├── backend/
 │   ├── app/main.py          # FastAPI routes, auth, records, assistant
@@ -194,7 +195,7 @@ python -m ml.evaluate
 
 Supported architectures in `ml/models.py` are `efficientnet_b0`, `efficientnet_b3`, `efficientnet_b4`, and `resnet50`. Training selects `models/best.pt` using validation macro-F1. Evaluation writes metrics/plots under `reports/` and calibration metadata to `models/meta.json`. Keep the test split held out while tuning the model.
 
-The default production inference paths are `models/best.pt` and `models/meta.json`. Checkpoint metadata supplies the architecture, label names, image size, and weights. Keep a checkpoint and its metadata from the same training/evaluation run together. Never load an untrusted PyTorch checkpoint.
+Local training produces `models/best.pt`. The Hugging Face deployment bundle uses `models/best.safetensors`, exported from the trusted checkpoint with `python -m ml.export_safetensors models/best.pt deploy/huggingface-space/models/best.safetensors`. The service prefers `best.safetensors` when it exists and retains safe `weights_only=True` loading for legacy `.pt` checkpoints. Never load an untrusted PyTorch checkpoint.
 
 ## API overview
 
@@ -228,7 +229,7 @@ The primary analysis PDF and the separate acne-care PDF are currently English-la
 
 | Variable | Purpose | Default / guidance |
 |---|---|---|
-| `SKINAI_MODEL` | Model checkpoint path | `models/best.pt` |
+| `SKINAI_MODEL` | Optional model checkpoint path | Deployment prefers `models/best.safetensors`, then `models/best.pt` |
 | `SKINAI_META` | Calibration metadata path | `models/meta.json` |
 | `SKINAI_STORAGE` | Temporary reports and default account database directory | `storage/`; use a persistent private volume in deployment |
 | `SKINAI_DB` | Optional SQLite database path | `storage/skinai.sqlite3` |
@@ -253,7 +254,7 @@ The production frontend is [https://skin-ai-psi-two.vercel.app/](https://skin-ai
 1. Import this repository into Vercel and use the repository root as the project root.
 2. The included [`vercel.json`](vercel.json) sets the frontend install/build commands, publishes `frontend/dist`, handles SPA paths, and configures basic browser security headers.
 3. Leave `VITE_API_URL` unset. The Vercel rewrite proxies `/api` to the backend origin and keeps session requests same-origin.
-4. Deploy `deploy/huggingface-space/` to the Gradio Space `nouranomar/skin-ai-backend`, select Python 3.12 and ZeroGPU hardware, and set production secrets as documented in [`DEPLOYMENT.md`](DEPLOYMENT.md). The bundle includes `models/best.pt`.
+4. Deploy `deploy/huggingface-space/` to the Gradio Space `nouranomar/skin-ai-backend`, select Python 3.12 and ZeroGPU hardware, and set production secrets as documented in [`DEPLOYMENT.md`](DEPLOYMENT.md). The bundle includes `models/best.safetensors`; keep it tracked with Git LFS.
 5. Hugging Face Space local storage is ephemeral; connect a durable external database before relying on saved history in production. Follow [`DEPLOYMENT.md`](DEPLOYMENT.md) for the deployment checklist.
 6. After deployment, verify `/api/health`, sign-in, analysis, PDFs, CORS, and the SEO files (`/robots.txt`, `/sitemap.xml`, `/favicon.svg`, `/og-skinai.png`). Confirm canonical and social URLs match the final production domain.
 

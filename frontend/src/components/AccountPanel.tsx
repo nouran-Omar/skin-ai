@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { addProgress, currentAccount, deleteHistory, deleteProgress, fetchHistory, fetchProgress, login, logout, register, saveAnalysis, type Account, type ProgressEntry, type SavedAnalysis } from "../api";
+import { addProgress, currentAccount, deleteAccount, deleteHistory, deleteProgress, fetchHistory, fetchProgress, login, logout, register, saveAnalysis, type Account, type ProgressEntry, type SavedAnalysis } from "../api";
 import { localizeApiError, translatedContent, useLanguage } from "../i18n";
 
 export default function AccountPanel({ analysisId }: { analysisId?: string }) {
@@ -48,6 +48,15 @@ export default function AccountPanel({ analysisId }: { analysisId?: string }) {
     try { await logout(); setAccount(null); setItems([]); setEntries([]); }
     catch (cause) { showError(cause, "Request failed"); }
   };
+  const closeAccount = async () => {
+    if (!window.confirm(t("Delete your account and saved summaries? This cannot be undone."))) return;
+    setError(""); setMessage("");
+    try {
+      await deleteAccount();
+      setAccount(null); setItems([]); setEntries([]); setEmail(""); setPassword("");
+      setMessage(t("Your account and saved account data were deleted."));
+    } catch (cause) { showError(cause, "Could not delete account"); }
+  };
   const removeSaved = async (id: string) => {
     setError("");
     try { await deleteHistory(id); await refresh(); }
@@ -67,7 +76,7 @@ export default function AccountPanel({ analysisId }: { analysisId?: string }) {
           <h2 id="account-title" className="mt-2 text-2xl font-semibold sm:text-3xl">{t("Skin progress journal")}</h2>
           <p className="mt-2 text-sm leading-6 text-brand-600 dark:text-brand-200">{t("Save summaries and progress notes. Uploaded photos are not stored in your account.")}</p>
         </div>
-        {account && <button className="btn-ghost" onClick={signOut}>{t("Sign out")}</button>}
+        {account && <div className="flex flex-wrap gap-2"><button className="btn-ghost" onClick={signOut}>{t("Sign out")}</button><button className="btn-ghost text-coral-600" onClick={closeAccount}>{t("Delete account")}</button></div>}
       </div>
       <div className="p-5 sm:p-7">
         {error && <p role="alert" className="mb-4 rounded-xl bg-coral-100 px-4 py-3 text-sm text-coral-700">{error}</p>}

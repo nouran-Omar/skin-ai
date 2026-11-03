@@ -140,7 +140,7 @@ export default function Results({ r, onReset }: { r: AnalysisResult; onReset: ()
         <p className="max-w-2xl text-xs text-brand-500 dark:text-brand-300">{translatedContent(r.disclaimer, language)}</p>
         <div className="flex w-full flex-col-reverse gap-3 sm:w-auto sm:flex-row">
           <button className="btn-ghost w-full sm:w-auto" onClick={onReset}><RotateCcw size={16} /> {t("Start over")}</button>
-          <a className="btn-primary w-full sm:w-auto" href={reportUrl(r.id)} download><Download size={16} /> {t("Download PDF report")}</a>
+          <a className="btn-primary w-full sm:w-auto" href={reportUrl(r.id, language)} download><Download size={16} /> {t("Download PDF report")}</a>
         </div>
       </div>
     </div>

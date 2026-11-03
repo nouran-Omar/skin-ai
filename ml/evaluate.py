@@ -78,7 +78,7 @@ def plot_history(path_json, path_png):
 
 def main() -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    ckpt = torch.load(MODELS_DIR / "best.pt", map_location=device, weights_only=False)
+    ckpt = torch.load(MODELS_DIR / "best.pt", map_location=device, weights_only=True)
     classes, arch, size = ckpt["class_names"], ckpt["arch"], ckpt["img_size"]
     model = build_model(arch, len(classes), pretrained=False).to(device)
     model.load_state_dict(ckpt["state_dict"])

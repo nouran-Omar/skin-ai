@@ -36,6 +36,10 @@ const AR: Record<string, string> = {
   "Analysis": "التحليل",
   "Features": "المزايا",
   "Account": "الحساب",
+  "Delete account": "حذف الحساب",
+  "Delete your account and saved summaries? This cannot be undone.": "هل تريد حذف حسابك والملخصات المحفوظة؟ لا يمكن التراجع عن هذا الإجراء.",
+  "Your account and saved account data were deleted.": "تم حذف حسابك والبيانات المحفوظة فيه.",
+  "Download acne care guide": "تنزيل دليل العناية بحب الشباب",
   "Resources": "الموارد",
   "Chatbot": "المحادثة الذكية",
   "Acne Care": "العناية بحب الشباب",
@@ -386,6 +390,7 @@ export function localizeApiError(message: string, language: Language): string {
     "Analysis is not in this account's saved history.": "هذا التحليل غير موجود في السجل المحفوظ لهذا الحساب.",
     "Could not reach assistant. Please try again.": "تعذر الاتصال بالمساعد. حاول مرة أخرى من فضلك.",
     "Could not save": "تعذر الحفظ. حاول مرة أخرى من فضلك.",
+    "Could not delete account": "تعذر حذف الحساب. حاول مرة أخرى من فضلك.",
   };
   return apiErrors[message] ?? "حدث خطأ أثناء تنفيذ الطلب. يُرجى المحاولة مرة أخرى.";
 }

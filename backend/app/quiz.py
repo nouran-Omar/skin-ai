@@ -151,7 +151,7 @@ def assess_urgency(probs: list[float], classes: list[str], answers: dict) -> dic
     top_c = classes[max(range(len(probs)), key=probs.__getitem__)]
     red_flags = answers.get("change") == "rapid" or (answers.get("non_healing") == "yes") \
         or (_has(answers, "symptoms", "bleeding") and answers.get("change") in ("slow", "rapid"))
-    if mel >= 0.2 or risky >= 0.5 or red_flags and risky >= 0.2:
+    if mel >= 0.2 or risky >= 0.5 or (red_flags and risky >= 0.2):
         return dict(level="urgent", title="See a doctor soon", message="Features that need a professional check were found. "
                     "Book a dermatology appointment within the next 1-2 weeks, and sooner if the spot keeps changing.")
     if risky >= 0.2 or red_flags or info(top_c)["risk"] == "inflammatory" and answers.get("itch_severity", 0) >= 7:

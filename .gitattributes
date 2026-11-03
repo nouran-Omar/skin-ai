@@ -1,2 +1,6 @@
 models/*.pt filter=lfs diff=lfs merge=lfs -text
 deploy/huggingface-space/models/*.pt filter=lfs diff=lfs merge=lfs -text
+models/*.safetensors filter=lfs diff=lfs merge=lfs -text
+deploy/huggingface-space/models/*.safetensors filter=lfs diff=lfs merge=lfs -text
+backend/app/fonts/*.ttf filter=lfs diff=lfs merge=lfs -text
+deploy/huggingface-space/backend/app/fonts/*.ttf filter=lfs diff=lfs merge=lfs -text
